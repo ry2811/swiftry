@@ -43,49 +43,44 @@ export default function Shell() {
                     }
                   }
                 </script>
-                <style>body { margin: 0; padding: 0; }</style>
+                <style>body { margin: 0; padding: 0; font-family: sans-serif; }</style>
               </head>
               <body>
                 <div id="root"></div>
                 <script type="module">
                   import { transform } from 'sucrase';
+                  import React from 'react';
+                  import ReactDOM from 'react-dom/client';
                   
                   const aiCode = ${JSON.stringify(code)};
 
                   try {
-                    // 1. Chuẩn bị code: Đảm bảo có đủ React và Render logic
                     const fullCode = aiCode
-                      .replace(/import.*from.*'react'/g, '') // Xóa import cũ
-                      .replace(/import.*from.*'lucide-react'/g, '') // Xóa import icon cũ
-                      .replace(/export default function/g, 'function')
-                      + "\\n" +
-                      "import ReactDOM from 'react-dom/client';\\n" +
-                      "const root = ReactDOM.createRoot(document.getElementById('root'));\\n" +
-                      "root.render(React.createElement(App));";
+                      .replace(/import.*from.*'react'/g, '')
+                      .replace(/import.*from.*'lucide-react'/g, '')
+                      .replace(/export default function/g, 'function');
 
-                    // 2. Biên dịch
                     const compiled = transform(fullCode, {
                       transforms: ['typescript', 'jsx'],
                       production: true
                     }).code;
 
-                    // 3. Chèn Import chuẩn vào đầu file
+                    // Bản FIX: Ép nạp mọi Hooks của React và mọi Icon của Lucide
                     const finalCode = 
-                      "import React from 'react';\\n" +
-                      "import * as LucideIcons from 'lucide-react';\\n" +
-                      "const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target } = LucideIcons;\\n" +
-                      compiled;
+                      "import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';\n" +
+                      "import * as LucideIcons from 'lucide-react';\n" +
+                      "const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target, Layout, Phone, Globe, Shield, Rocket, Smartphone, Search, Monitor, Laptop, Desktop, Terminal } = LucideIcons;\n" +
+                      compiled + 
+                      "\nconst root = ReactDOM.createRoot(document.getElementById('root')); root.render(React.createElement(App));";
 
-                    // 4. Exec
                     const blob = new Blob([finalCode], { type: 'text/javascript' });
                     const url = URL.createObjectURL(blob);
                     const script = document.createElement('script');
                     script.type = 'module';
                     script.src = url;
                     document.body.appendChild(script);
-
                   } catch (e) {
-                    document.getElementById('root').innerHTML = '<div style="padding:40px;color:red;font-family:sans-serif;"><b>Lỗi hệ thống:</b><br/>' + e.message + '</div>';
+                    document.getElementById('root').innerHTML = '<div style="padding:40px;color:red;">Lỗi hệ thống: ' + e.message + '</div>';
                   }
                 </script>
               </body>
