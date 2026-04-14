@@ -33,7 +33,7 @@ export default function Shell() {
     }
   }, [code])
 
-  if (!projectId) return <div className="p-20 text-center font-sans">Vui lòng nhập ID dự án trên URL</div>
+  if (!projectId) return <div className="p-20 text-center font-sans tracking-tight">Vui lòng nhập ID dự án trên URL</div>
   if (!code) return <div className="p-20 text-center font-sans animate-pulse text-gray-400">Đang nạp dự án AI...</div>
 
   return (
@@ -66,14 +66,17 @@ export default function Shell() {
                     if (event.data.type === 'RENDER_CODE') {
                       const aiCode = event.data.code;
                       try {
-                        const compiled = transform(aiCode, {
-                          transforms: ['typescript', 'jsx'],
-                          production: true
-                        }).code;
+                        // 1. XỬ LÝ TRƯỚC KHI BIÊN DỊCH (PRE-TRANSPILE)
+                        // Bẫy Icon đa dòng và xóa import thừa
+                        const sanitizedRawCode = aiCode
+                          .replace(/import\s+{([\s\S]*?)}\s+from\s+['"]lucide-react['"]/g, 'const {$1} = ProxiedIcons;')
+                          .replace(/import\s+[^;]*from\s+['"]lucide-react['"];?/g, '')
+                          .replace(/import\s+[^;]*from\s+['"]react['"];?/g, '')
+                          .replace(/import\s+[^;]*from\s+['"]react-dom[^'"]*['\"];?/g, '')
+                          .replace(/export default function/g, 'function');
 
-                        // CHIẾN THUẬT QUY ĐỔI NĂNG ĐỘNG (DYNAMIC MAPPING)
-                        // Bắt mọi icon AI yêu cầu và đưa vào Proxy
-                        const finalCode = 
+                        // 2. CHUẨN BỊ MÔI TRƯỜNG THỰC THI
+                        const fullCode = 
                           "import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';\\n" +
                           "import ReactDOM from 'react-dom/client';\\n" +
                           "import * as LucideIcons from 'lucide-react';\\n" +
@@ -83,14 +86,17 @@ export default function Shell() {
                           "    return target[prop];\\n" +
                           "  }\\n" +
                           "});\\n" +
-                          compiled.replace(/export default function/g, 'function')
-                                  .replace(/import\\s+{([^}]*)}\\s+from\\s+['\"]lucide-react['\"]/g, 'const {$1} = ProxiedIcons;')
-                                  .replace(/import\\s+[^;]*from\\s+['\"]lucide-react['\"];?/g, '') // Xóa nốt các kiểu import lucide khác
-                                  .replace(/import\\s+[^;]*from\\s+['\"]react['\"];?/g, '')
-                                  .replace(/import\\s+[^;]*from\\s+['\"]react-dom[^'\"]*['\"];?/g, '') +
+                          sanitizedRawCode + 
                           "\\nconst root = ReactDOM.createRoot(document.getElementById('root')); root.render(React.createElement(App));";
 
-                        const blob = new Blob([finalCode], { type: 'text/javascript' });
+                        // 3. BIÊN DỊCH BẢN ĐÃ SẠCH SẼ
+                        const compiled = transform(fullCode, {
+                          transforms: ['typescript', 'jsx'],
+                          production: true
+                        }).code;
+
+                        // 4. THỰC THI
+                        const blob = new Blob([compiled], { type: 'text/javascript' });
                         const url = URL.createObjectURL(blob);
                         const script = document.createElement('script');
                         script.type = 'module';
