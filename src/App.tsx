@@ -53,27 +53,31 @@ export default function Shell() {
                   const aiCode = ${JSON.stringify(code)};
 
                   try {
-                    // 1. Chuẩn bị code hoàn chỉnh (Gồm cả phần Render)
+                    // 1. Chuẩn bị code: Đảm bảo có đủ React và Render logic
                     const fullCode = aiCode
+                      .replace(/import.*from.*'react'/g, '') // Xóa import cũ
+                      .replace(/import.*from.*'lucide-react'/g, '') // Xóa import icon cũ
                       .replace(/export default function/g, 'function')
-                      + \`\\n
-                      import ReactDOM from 'react-dom/client';
-                      const root = ReactDOM.createRoot(document.getElementById('root'));
-                      root.render(<App />);\`;
+                      + "\\n" +
+                      "import ReactDOM from 'react-dom/client';\\n" +
+                      "const root = ReactDOM.createRoot(document.getElementById('root'));\\n" +
+                      "root.render(React.createElement(App));";
 
-                    // 2. Transpile toàn bộ code
+                    // 2. Biên dịch
                     const compiled = transform(fullCode, {
                       transforms: ['typescript', 'jsx'],
                       production: true
                     }).code;
 
-                    // 3. Xử lý Repo Imports (Thay thế import React cục bộ thành ESM)
-                    const executableCode = compiled
-                      .replace(/import.*from.*"react"/g, 'import React from "react"')
-                      .replace(/import.*from.*"lucide-react"/g, 'import * as LucideIcons from "lucide-react"; const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target } = LucideIcons;');
+                    // 3. Chèn Import chuẩn vào đầu file
+                    const finalCode = 
+                      "import React from 'react';\\n" +
+                      "import * as LucideIcons from 'lucide-react';\\n" +
+                      "const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target } = LucideIcons;\\n" +
+                      compiled;
 
-                    // 4. Chạy qua Blob
-                    const blob = new Blob([executableCode], { type: 'text/javascript' });
+                    // 4. Exec
+                    const blob = new Blob([finalCode], { type: 'text/javascript' });
                     const url = URL.createObjectURL(blob);
                     const script = document.createElement('script');
                     script.type = 'module';
