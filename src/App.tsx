@@ -61,46 +61,50 @@ export default function Shell() {
                 <div id="root"></div>
                 <script type="module">
                   import { transform } from 'sucrase';
+                  import React from 'react';
+                  import ReactDOM from 'react-dom/client';
+                  import * as Lucide from 'lucide-react';
                   
                   window.addEventListener('message', async (event) => {
                     if (event.data.type === 'RENDER_CODE') {
                       const aiCode = event.data.code;
                       try {
-                        // 1. THANH LỌC CODE TUYỆT ĐỐI (Xóa bỏ import và export)
-                        const rawCleaned = aiCode
-                          .replace(/import\s+[\s\S]*?from\s+['"]react['"];?/g, '')
-                          .replace(/import\s+[\s\S]*?from\s+['"]lucide-react['"];?/g, '')
-                          .replace(/import\s+[\s\S]*?from\s+['"]react-dom[^'"]*['\"];?/g, '')
-                          .replace(/export default function/g, 'function');
-
-                        // 2. BIÊN DỊCH VỚI TÊN BIẾN CÔ LẬP (ISOLATED)
+                        // 1. BIÊN DỊCH SANG DẠNG CJS (DÙNG REQUIRE ĐỂ TRÁNH TRÙNG KHAI BÁO)
+                        const rawCleaned = aiCode.replace(/export default function/g, 'function');
                         const compiled = transform(rawCleaned, {
-                          transforms: ['typescript', 'jsx'],
-                          production: true,
-                          jsxPragma: 'React.createElement',
-                          jsxFragmentPragma: 'React.Fragment'
+                          transforms: ['typescript', 'jsx', 'imports'],
+                          production: true
                         }).code;
 
-                        // 3. XÂY DỰNG BẢN THIẾT KẾ (THE BLUEPRINT)
-                        // Dùng IIFE để cô lập phạm vi, tránh trùng lặp biến toàn cục
+                        // 2. CÀI ĐẶT BỘ CẦU NỐI BRIDGING (SMART REQUIRE)
                         const finalCode = 
-                          "import React from 'react';\\n" +
-                          "import ReactDOM from 'react-dom/client';\\n" +
-                          "import * as Lucide from 'lucide-react';\\n" +
-                          "const { useState, useEffect, useMemo, useCallback, useRef } = React;\\n" +
-                          "const ProxiedIcons = new Proxy(Lucide, {\\n" +
-                          "  get: (target, prop) => target[prop] || target.Sparkles || target.Star\\n" +
-                          "});\\n" +
-                          "// Cung cấp các biến cho code của AI\\n" +
-                          "const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target, Layout, Smartphone, Globe, Shield, Rocket, Search, Monitor, Laptop, Terminal, ChessKnight, Basketball } = ProxiedIcons;\\n" +
-                          compiled + 
-                          "\\nconst root = ReactDOM.createRoot(document.getElementById('root')); root.render(React.createElement(App));";
+                          "(function() {\\n" +
+                          "  const exports = {};\\n" +
+                          "  const React = window.React;\\n" +
+                          "  const ReactDOM = window.ReactDOM;\\n" +
+                          "  const Lucide = window.Lucide;\\n" +
+                          "  const ProxiedIcons = new Proxy(Lucide, {\\n" +
+                          "    get: (target, prop) => target[prop] || target.Sparkles || target.Star\\n" +
+                          "  });\\n" +
+                          "  const require = (name) => {\\n" +
+                          "    if (name === 'react') return React;\\n" +
+                          "    if (name === 'react-dom' || name === 'react-dom/client') return ReactDOM;\\n" +
+                          "    if (name === 'lucide-react') return ProxiedIcons;\\n" +
+                          "    return {};\\n" +
+                          "  };\\n" +
+                          "  const { useState, useEffect, useMemo, useCallback, useRef } = React;\\n" +
+                          compiled + "\\n" +
+                          "  const root = ReactDOM.createRoot(document.getElementById('root'));\\n" +
+                          "  root.render(React.createElement(App));\\n" +
+                          "})();";
 
-                        const blob = new Blob([finalCode], { type: 'text/javascript' });
-                        const url = URL.createObjectURL(blob);
+                        // Đưa thư viện lên window để require dùng
+                        window.React = React;
+                        window.ReactDOM = ReactDOM;
+                        window.Lucide = Lucide;
+
                         const script = document.createElement('script');
-                        script.type = 'module';
-                        script.src = url;
+                        script.text = finalCode;
                         document.body.appendChild(script);
 
                       } catch (e) {
