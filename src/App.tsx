@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient('https://gfahvcwxxihkunxugiel.supabase.co', 'sb_publishable_1WedncdpW2OEpoIYooUX8w_ov3Fmstq')
@@ -6,6 +6,7 @@ const supabase = createClient('https://gfahvcwxxihkunxugiel.supabase.co', 'sb_pu
 export default function Shell() {
   const [projectId, setProjectId] = useState<string | null>(null)
   const [code, setCode] = useState<string | null>(null)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
     const id = window.location.pathname.split('/').filter(Boolean).pop()
@@ -22,12 +23,24 @@ export default function Shell() {
     }
   }
 
-  if (!projectId) return <div className="p-20 text-center font-sans tracking-tight">Vui lòng nhập ID dự án trên URL</div>
+  // Gửi code sang iframe qua postMessage sau khi iframe đã load
+  useEffect(() => {
+    if (code && iframeRef.current) {
+      const handleLoad = () => {
+        iframeRef.current?.contentWindow?.postMessage({ type: 'RENDER_CODE', code }, '*')
+      }
+      iframeRef.current.addEventListener('load', handleLoad)
+      return () => iframeRef.current?.removeEventListener('load', handleLoad)
+    }
+  }, [code])
+
+  if (!projectId) return <div className="p-20 text-center font-sans">Vui lòng nhập ID dự án trên URL</div>
   if (!code) return <div className="p-20 text-center font-sans animate-pulse text-gray-400">Đang nạp dự án AI...</div>
 
   return (
     <div className="min-h-screen bg-white">
        <iframe 
+          ref={iframeRef}
           srcDoc={`
             <html>
               <head>
@@ -43,45 +56,50 @@ export default function Shell() {
                     }
                   }
                 </script>
-                <style>body { margin: 0; padding: 0; font-family: sans-serif; }</style>
+                <style>body { margin: 0; padding: 0; }</style>
               </head>
               <body>
                 <div id="root"></div>
                 <script type="module">
                   import { transform } from 'sucrase';
-                  import React from 'react';
-                  import ReactDOM from 'react-dom/client';
                   
-                  const aiCode = ${JSON.stringify(code)};
+                  window.addEventListener('message', async (event) => {
+                    if (event.data.type === 'RENDER_CODE') {
+                      const aiCode = event.data.code;
+                      try {
+                        const fullCode = aiCode
+                          .replace(/import.*from.*'react'/g, '')
+                          .replace(/import.*from.*'lucide-react'/g, '')
+                          .replace(/export default function/g, 'function')
+                          + "\\n" +
+                          "import ReactDOM from 'react-dom/client';\\n" +
+                          "const root = ReactDOM.createRoot(document.getElementById('root'));\\n" +
+                          "root.render(React.createElement(App));";
 
-                  try {
-                    const fullCode = aiCode
-                      .replace(/import.*from.*'react'/g, '')
-                      .replace(/import.*from.*'lucide-react'/g, '')
-                      .replace(/export default function/g, 'function');
+                        const compiled = transform(fullCode, {
+                          transforms: ['typescript', 'jsx'],
+                          production: true
+                        }).code;
 
-                    const compiled = transform(fullCode, {
-                      transforms: ['typescript', 'jsx'],
-                      production: true
-                    }).code;
+                        const finalCode = 
+                          "import React from 'react';\\n" +
+                          "import * as LucideIcons from 'lucide-react';\\n" +
+                          "const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target, Layout, Smartphone, Globe, Shield, Rocket, Search, Monitor, Laptop, Terminal } = LucideIcons;\\n" +
+                          "import { useState, useEffect, useMemo, useCallback, useRef } from 'react';\\n" +
+                          compiled;
 
-                    // Bản FIX: Ép nạp mọi Hooks của React và mọi Icon của Lucide
-                    const finalCode = 
-                      "import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';\n" +
-                      "import * as LucideIcons from 'lucide-react';\n" +
-                      "const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target, Layout, Phone, Globe, Shield, Rocket, Smartphone, Search, Monitor, Laptop, Desktop, Terminal } = LucideIcons;\n" +
-                      compiled + 
-                      "\nconst root = ReactDOM.createRoot(document.getElementById('root')); root.render(React.createElement(App));";
+                        const blob = new Blob([finalCode], { type: 'text/javascript' });
+                        const url = URL.createObjectURL(blob);
+                        const script = document.createElement('script');
+                        script.type = 'module';
+                        script.src = url;
+                        document.body.appendChild(script);
 
-                    const blob = new Blob([finalCode], { type: 'text/javascript' });
-                    const url = URL.createObjectURL(blob);
-                    const script = document.createElement('script');
-                    script.type = 'module';
-                    script.src = url;
-                    document.body.appendChild(script);
-                  } catch (e) {
-                    document.getElementById('root').innerHTML = '<div style="padding:40px;color:red;">Lỗi hệ thống: ' + e.message + '</div>';
-                  }
+                      } catch (e) {
+                         document.getElementById('root').innerHTML = '<div style=\"padding:40px;color:red;font-family:sans-serif;\"><b>Lỗi hệ thống:</b><br/>' + e.message + '</div>';
+                      }
+                    }
+                  });
                 </script>
               </body>
             </html>
