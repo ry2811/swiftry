@@ -33,7 +33,7 @@ export default function Shell() {
     }
   }, [code])
 
-  if (!projectId) return <div className="p-20 text-center font-sans tracking-tight">Vui lòng nhập ID dự án trên URL</div>
+  if (!projectId) return <div className="p-20 text-center font-sans">Vui lòng nhập ID dự án trên URL</div>
   if (!code) return <div className="p-20 text-center font-sans animate-pulse text-gray-400">Đang nạp dự án AI...</div>
 
   return (
@@ -66,37 +66,35 @@ export default function Shell() {
                     if (event.data.type === 'RENDER_CODE') {
                       const aiCode = event.data.code;
                       try {
-                        // 1. THANH LỌC CODE (NUKE ALL IMPORTS)
-                        const cleanedCode = aiCode
-                          .replace(/import\s+[\s\S]*?from\s+['"]lucide-react['"];?/g, '')
-                          .replace(/import\s+[\s\S]*?from\s+['"]react['"];?/g, '')
-                          .replace(/import\s+[\s\S]*?from\s+['"]react-dom[^'"]*['\"];?/g, '')
-                          .replace(/export default function/g, 'function');
-
-                        // 2. KHAI BÁO CHUẨN ĐỘC TÔN
-                        const fullCode = 
-                          "import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';\\n" +
-                          "import ReactDOM from 'react-dom/client';\\n" +
-                          "import * as LucideIcons from 'lucide-react';\\n" +
-                          "const ProxiedIcons = new Proxy(LucideIcons, {\\n" +
+                        // 1. CHUẨN BỊ MÔI TRƯỜNG VỚI TÊN RIÊNG (BIẾN HỆ THỐNG)
+                        const setupEnv = 
+                          "import * as __HETHONG_REACT__ from 'react';\\n" +
+                          "import * as __HETHONG_DOM__ from 'react-dom/client';\\n" +
+                          "import * as __LUCIDE_GOC__ from 'lucide-react';\\n" +
+                          "const ProxiedIcons = new Proxy(__LUCIDE_GOC__, {\\n" +
                           "  get: (target, prop) => {\\n" +
                           "    if (typeof prop === 'string' && !target[prop]) return target.Sparkles || target.Star || target.Activity;\\n" +
                           "    return target[prop];\\n" +
                           "  }\\n" +
                           "});\\n" +
-                          "// Trích xuất icon từ Proxy để AI dùng trực tiếp\\n" +
-                          "const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target, Layout, Smartphone, Globe, Shield, Rocket, Search, Monitor, Laptop, Terminal, ChessKnight, Basketball } = ProxiedIcons;\\n" +
-                          cleanedCode + 
-                          "\\nconst root = ReactDOM.createRoot(document.getElementById('root')); root.render(React.createElement(App));";
+                          "const { useState, useEffect, useMemo, useCallback, useRef } = __HETHONG_REACT__;\\n";
 
-                        // 3. BIÊN DỊCH
-                        const compiled = transform(fullCode, {
+                        // 2. BIÊN DỊCH VỚI PRAGMA TÙY CHỈNH (KHÔNG DÙNG TÊN 'React' ĐỂ TRÁNH TRÙNG)
+                        const compiled = transform(aiCode.replace(/export default function/g, 'function'), {
                           transforms: ['typescript', 'jsx'],
-                          production: true
+                          production: true,
+                          jsxPragma: '__HETHONG_REACT__.createElement',
+                          jsxFragmentPragma: '__HETHONG_REACT__.Fragment'
                         }).code;
 
-                        // 4. THỰC THI
-                        const blob = new Blob([compiled], { type: 'text/javascript' });
+                        // 3. XỬ LÝ ICON VÀ CÁC THAY THẾ CUỐI CÙNG
+                        const executableCode = setupEnv + 
+                          compiled.replace(/import\\s+{([\s\S]*?)}\\s+from\\s+['\"]lucide-react['\"]/g, 'const {$1} = ProxiedIcons;')
+                                  .replace(/import\\s+[\s\S]*?from\\s+['\"]lucide-react['\"];?/g, '')
+                                  .replace(/import\\s+[\s\S]*?from\\s+['\"]react['\"];?/g, '') +
+                          "\\nconst root = __HETHONG_DOM__.createRoot(document.getElementById('root')); root.render(__HETHONG_REACT__.createElement(App));";
+
+                        const blob = new Blob([executableCode], { type: 'text/javascript' });
                         const url = URL.createObjectURL(blob);
                         const script = document.createElement('script');
                         script.type = 'module';
