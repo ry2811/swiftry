@@ -49,31 +49,31 @@ export default function Shell() {
                 <div id="root"></div>
                 <script type="module">
                   import { transform } from 'sucrase';
-                  import React from 'react';
-                  import ReactDOM from 'react-dom/client';
                   
-                  const rawCode = ${JSON.stringify(code)};
+                  const aiCode = ${JSON.stringify(code)};
 
                   try {
-                    const compiled = transform(rawCode, {
+                    // 1. Chuẩn bị code hoàn chỉnh (Gồm cả phần Render)
+                    const fullCode = aiCode
+                      .replace(/export default function/g, 'function')
+                      + \`\\n
+                      import ReactDOM from 'react-dom/client';
+                      const root = ReactDOM.createRoot(document.getElementById('root'));
+                      root.render(<App />);\`;
+
+                    // 2. Transpile toàn bộ code
+                    const compiled = transform(fullCode, {
                       transforms: ['typescript', 'jsx'],
                       production: true
                     }).code;
 
+                    // 3. Xử lý Repo Imports (Thay thế import React cục bộ thành ESM)
                     const executableCode = compiled
-                      .replace(/import.*from.*"react"/g, '')
-                      .replace(/import.*from.*"lucide-react"/g, 'import { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles } from "lucide-react";')
-                      .replace(/export default function/g, 'function');
+                      .replace(/import.*from.*"react"/g, 'import React from "react"')
+                      .replace(/import.*from.*"lucide-react"/g, 'import * as LucideIcons from "lucide-react"; const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target } = LucideIcons;');
 
-                    const scriptText = \`
-                      import React from 'react';
-                      import ReactDOM from 'react-dom/client';
-                      \${executableCode}
-                      const root = ReactDOM.createRoot(document.getElementById('root'));
-                      root.render(<App />);
-                    \`;
-                    
-                    const blob = new Blob([scriptText], { type: 'text/javascript' });
+                    // 4. Chạy qua Blob
+                    const blob = new Blob([executableCode], { type: 'text/javascript' });
                     const url = URL.createObjectURL(blob);
                     const script = document.createElement('script');
                     script.type = 'module';
@@ -81,7 +81,7 @@ export default function Shell() {
                     document.body.appendChild(script);
 
                   } catch (e) {
-                    document.getElementById('root').innerHTML = '<div style="padding:40px;color:red;font-family:sans-serif;"><b>Lỗi hiển thị:</b><br/>' + e.message + '</div>';
+                    document.getElementById('root').innerHTML = '<div style="padding:40px;color:red;font-family:sans-serif;"><b>Lỗi hệ thống:</b><br/>' + e.message + '</div>';
                   }
                 </script>
               </body>
