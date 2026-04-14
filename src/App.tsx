@@ -8,7 +8,7 @@ export default function Shell() {
   const [code, setCode] = useState<string | null>(null)
 
   useEffect(() => {
-    const id = window.location.pathname.split('/').pop()
+    const id = window.location.pathname.split('/').filter(Boolean).pop()
     if (id && id.length > 20) {
       setProjectId(id)
       fetchProject(id)
@@ -18,35 +18,57 @@ export default function Shell() {
   async function fetchProject(id: string) {
     const { data } = await supabase.from('projects').select('files').eq('id', id).single()
     if (data?.files && data.files['/App.tsx']) {
-      // Vì đây là demo nhanh, chúng ta dùng cơ chế đơn giản để render
-      // Trong thực tế sẽ dùng Sandpack hoặc Dynamic Import
       setCode(data.files['/App.tsx'])
     }
   }
 
-  if (!projectId) return <div className="p-20 text-center text-xl">Vui lòng nhập ID dự án trên URL (ví dụ: /project-id)</div>
-  if (!code) return <div className="p-20 text-center text-xl animate-pulse">Đang tải dự án AI...</div>
+  if (!projectId) return <div className="p-20 text-center font-sans">Vui lòng nhập ID dự án trên URL</div>
+  if (!code) return <div className="p-20 text-center font-sans animate-pulse text-gray-400">Đang nạp dự án AI...</div>
+
+  // Chuẩn hóa code AI để dùng Import Map
+  const cleanCode = code
+    .replace(/'lucide-react'/g, '"lucide-react"')
+    .replace(/'react'/g, '"react"')
+    .replace(/'react-dom\/client'/g, '"react-dom/client"')
+    .replace(/export default function/g, 'function')
 
   return (
-    <div className="min-h-screen">
-       {/* Ở đây bạn có thể dùng Sandpack để render code AI một cách hoàn hảo */}
+    <div className="min-h-screen bg-white">
        <iframe 
           srcDoc={`
             <html>
-              <head><script src="https://cdn.tailwindcss.com"></script></head>
+              <head>
+                <script src="https://cdn.tailwindcss.com"></script>
+                <script type="importmap">
+                  {
+                    "imports": {
+                      "react": "https://esm.sh/react@18.3.1",
+                      "react-dom": "https://esm.sh/react-dom@18.3.1",
+                      "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+                      "lucide-react": "https://esm.sh/lucide-react@0.446.0?deps=react@18.3.1"
+                    }
+                  }
+                </script>
+                <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+                <style>body { margin: 0; padding: 0; }</style>
+              </head>
               <body>
                 <div id="root"></div>
-                <script type="module">
-                  // Đơn giản hóa để chạy trực tiếp code React sinh ra bởi AI
-                  console.log("Rendering project...")
+                <script type="text/babel" data-type="module">
+                  // Nạp code AI qua importmap
+                  ${cleanCode}
+
+                  import ReactDOM from 'react-dom/client';
+                  const root = ReactDOM.createRoot(document.getElementById('root'));
+                  root.render(<App />);
                 </script>
               </body>
             </html>
           `}
           className="w-full h-screen border-none"
        />
-       <div className="fixed bottom-4 right-4 bg-black/80 text-white px-4 py-2 rounded-full text-xs">
-          Preview Mode: ${projectId}
+       <div className="fixed bottom-4 right-4 bg-black/80 text-white px-4 py-2 rounded-full text-[10px] z-50 font-mono opacity-50">
+          ID: ${projectId}
        </div>
     </div>
   )
