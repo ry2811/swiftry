@@ -23,7 +23,6 @@ export default function Shell() {
     }
   }
 
-  // Gửi code sang iframe qua postMessage sau khi iframe đã load
   useEffect(() => {
     if (code && iframeRef.current) {
       const handleLoad = () => {
@@ -68,6 +67,7 @@ export default function Shell() {
                       const aiCode = event.data.code;
                       try {
                         const fullCode = aiCode
+                          .replace(/import {([^}]*)} from 'lucide-react'/g, 'const {$1} = ProxiedIcons;')
                           .replace(/import.*from.*'react'/g, '')
                           .replace(/import.*from.*'lucide-react'/g, '')
                           .replace(/export default function/g, 'function')
@@ -82,10 +82,14 @@ export default function Shell() {
                         }).code;
 
                         const finalCode = 
-                          "import React from 'react';\\n" +
+                          "import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';\\n" +
                           "import * as LucideIcons from 'lucide-react';\\n" +
-                          "const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target, Layout, Smartphone, Globe, Shield, Rocket, Search, Monitor, Laptop, Terminal } = LucideIcons;\\n" +
-                          "import { useState, useEffect, useMemo, useCallback, useRef } from 'react';\\n" +
+                          "const ProxiedIcons = new Proxy(LucideIcons, {\\n" +
+                          "  get: (target, prop) => {\\n" +
+                          "    if (typeof prop === 'string' && !target[prop]) return target.Sparkles || target.Star;\\n" +
+                          "    return target[prop];\\n" +
+                          "  }\\n" +
+                          "});\\n" +
                           compiled;
 
                         const blob = new Blob([finalCode], { type: 'text/javascript' });
