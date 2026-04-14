@@ -78,7 +78,7 @@ export default function Shell() {
                           production: true
                         }).code;
 
-                        // BẪY ICON: Thay thế mọi kiểu import lucide thành dùng ProxiedIcons
+                        // LOẠI BỎ TOÀN BỘ IMPORT CŨ VÀ THAY BẰNG BỘ KHAI BÁO CHUẨN ĐỘC NHẤT
                         const finalCode = 
                           "import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';\\n" +
                           "import * as LucideIcons from 'lucide-react';\\n" +
@@ -88,9 +88,9 @@ export default function Shell() {
                           "    return target[prop];\\n" +
                           "  }\\n" +
                           "});\\n" +
-                          compiled.replace(/import\\s+{([^}]*)}\\s+from\\s+['\"]lucide-react['\"]/g, 'const {$1} = ProxiedIcons')
-                                  .replace(/import\\s+React\\s+from\\s+['\"]react['\"]/g, '')
-                                  .replace(/import\\s+React\\s*,\\s*{([^}]*)}\\s+from\\s+['\"]react['\"]/g, 'const {$1} = React');
+                          compiled.replace(/import\\s+[^;]*from\\s+['\"]lucide-react['\"];?/g, 'const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target, Layout, Smartphone, Globe, Shield, Rocket, Search, Monitor, Laptop, Terminal, ChessKnight } = ProxiedIcons;')
+                                  .replace(/import\\s+[^;]*from\\s+['\"]react['\"];?/g, '')
+                                  .replace(/import\\s+[^;]*from\\s+['\"]react-dom[^'\"]*['\"];?/g, '');
 
                         const blob = new Blob([finalCode], { type: 'text/javascript' });
                         const url = URL.createObjectURL(blob);
