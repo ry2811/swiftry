@@ -66,16 +66,14 @@ export default function Shell() {
                     if (event.data.type === 'RENDER_CODE') {
                       const aiCode = event.data.code;
                       try {
-                        // 1. XỬ LÝ TRƯỚC KHI BIÊN DỊCH (PRE-TRANSPILE)
-                        // Bẫy Icon đa dòng và xóa import thừa
-                        const sanitizedRawCode = aiCode
-                          .replace(/import\s+{([\s\S]*?)}\s+from\s+['"]lucide-react['"]/g, 'const {$1} = ProxiedIcons;')
-                          .replace(/import\s+[^;]*from\s+['"]lucide-react['"];?/g, '')
-                          .replace(/import\s+[^;]*from\s+['"]react['"];?/g, '')
-                          .replace(/import\s+[^;]*from\s+['"]react-dom[^'"]*['\"];?/g, '')
+                        // 1. THANH LỌC CODE (NUKE ALL IMPORTS)
+                        const cleanedCode = aiCode
+                          .replace(/import\s+[\s\S]*?from\s+['"]lucide-react['"];?/g, '')
+                          .replace(/import\s+[\s\S]*?from\s+['"]react['"];?/g, '')
+                          .replace(/import\s+[\s\S]*?from\s+['"]react-dom[^'"]*['\"];?/g, '')
                           .replace(/export default function/g, 'function');
 
-                        // 2. CHUẨN BỊ MÔI TRƯỜNG THỰC THI
+                        // 2. KHAI BÁO CHUẨN ĐỘC TÔN
                         const fullCode = 
                           "import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';\\n" +
                           "import ReactDOM from 'react-dom/client';\\n" +
@@ -86,10 +84,12 @@ export default function Shell() {
                           "    return target[prop];\\n" +
                           "  }\\n" +
                           "});\\n" +
-                          sanitizedRawCode + 
+                          "// Trích xuất icon từ Proxy để AI dùng trực tiếp\\n" +
+                          "const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target, Layout, Smartphone, Globe, Shield, Rocket, Search, Monitor, Laptop, Terminal, ChessKnight, Basketball } = ProxiedIcons;\\n" +
+                          cleanedCode + 
                           "\\nconst root = ReactDOM.createRoot(document.getElementById('root')); root.render(React.createElement(App));";
 
-                        // 3. BIÊN DỊCH BẢN ĐÃ SẠCH SẼ
+                        // 3. BIÊN DỊCH
                         const compiled = transform(fullCode, {
                           transforms: ['typescript', 'jsx'],
                           production: true
