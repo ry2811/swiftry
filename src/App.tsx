@@ -66,21 +66,15 @@ export default function Shell() {
                     if (event.data.type === 'RENDER_CODE') {
                       const aiCode = event.data.code;
                       try {
-                        const fullCode = aiCode
-                          .replace(/export default function/g, 'function')
-                          + "\\n" +
-                          "import ReactDOM from 'react-dom/client';\\n" +
-                          "const root = ReactDOM.createRoot(document.getElementById('root'));\\n" +
-                          "root.render(React.createElement(App));";
-
-                        const compiled = transform(fullCode, {
+                        const compiled = transform(aiCode, {
                           transforms: ['typescript', 'jsx'],
                           production: true
                         }).code;
 
-                        // LOẠI BỎ TOÀN BỘ IMPORT CŨ VÀ THAY BẰNG BỘ KHAI BÁO CHUẨN ĐỘC NHẤT
+                        // BẢN VÁ HOÀN HẢO: Cung cấp đầy đủ React, ReactDOM và ProxiedIcons
                         const finalCode = 
                           "import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';\\n" +
+                          "import ReactDOM from 'react-dom/client';\\n" +
                           "import * as LucideIcons from 'lucide-react';\\n" +
                           "const ProxiedIcons = new Proxy(LucideIcons, {\\n" +
                           "  get: (target, prop) => {\\n" +
@@ -88,9 +82,11 @@ export default function Shell() {
                           "    return target[prop];\\n" +
                           "  }\\n" +
                           "});\\n" +
-                          compiled.replace(/import\\s+[^;]*from\\s+['\"]lucide-react['\"];?/g, 'const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target, Layout, Smartphone, Globe, Shield, Rocket, Search, Monitor, Laptop, Terminal, ChessKnight } = ProxiedIcons;')
+                          compiled.replace(/export default function/g, 'function')
+                                  .replace(/import\\s+[^;]*from\\s+['\"]lucide-react['\"];?/g, 'const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target, Layout, Smartphone, Globe, Shield, Rocket, Search, Monitor, Laptop, Terminal, ChessKnight } = ProxiedIcons;')
                                   .replace(/import\\s+[^;]*from\\s+['\"]react['\"];?/g, '')
-                                  .replace(/import\\s+[^;]*from\\s+['\"]react-dom[^'\"]*['\"];?/g, '');
+                                  .replace(/import\\s+[^;]*from\\s+['\"]react-dom[^'\"]*['\"];?/g, '') +
+                          "\\nconst root = ReactDOM.createRoot(document.getElementById('root')); root.render(React.createElement(App));";
 
                         const blob = new Blob([finalCode], { type: 'text/javascript' });
                         const url = URL.createObjectURL(blob);
