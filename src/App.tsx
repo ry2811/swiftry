@@ -71,7 +71,8 @@ export default function Shell() {
                           production: true
                         }).code;
 
-                        // BẢN VÁ HOÀN HẢO: Cung cấp đầy đủ React, ReactDOM và ProxiedIcons
+                        // CHIẾN THUẬT QUY ĐỔI NĂNG ĐỘNG (DYNAMIC MAPPING)
+                        // Bắt mọi icon AI yêu cầu và đưa vào Proxy
                         const finalCode = 
                           "import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';\\n" +
                           "import ReactDOM from 'react-dom/client';\\n" +
@@ -83,7 +84,8 @@ export default function Shell() {
                           "  }\\n" +
                           "});\\n" +
                           compiled.replace(/export default function/g, 'function')
-                                  .replace(/import\\s+[^;]*from\\s+['\"]lucide-react['\"];?/g, 'const { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles, Activity, Code, MessageSquare, Zap, Target, Layout, Smartphone, Globe, Shield, Rocket, Search, Monitor, Laptop, Terminal, ChessKnight } = ProxiedIcons;')
+                                  .replace(/import\\s+{([^}]*)}\\s+from\\s+['\"]lucide-react['\"]/g, 'const {$1} = ProxiedIcons;')
+                                  .replace(/import\\s+[^;]*from\\s+['\"]lucide-react['\"];?/g, '') // Xóa nốt các kiểu import lucide khác
                                   .replace(/import\\s+[^;]*from\\s+['\"]react['\"];?/g, '')
                                   .replace(/import\\s+[^;]*from\\s+['\"]react-dom[^'\"]*['\"];?/g, '') +
                           "\\nconst root = ReactDOM.createRoot(document.getElementById('root')); root.render(React.createElement(App));";
