@@ -25,13 +25,6 @@ export default function Shell() {
   if (!projectId) return <div className="p-20 text-center font-sans tracking-tight">Vui lòng nhập ID dự án trên URL</div>
   if (!code) return <div className="p-20 text-center font-sans animate-pulse text-gray-400">Đang nạp dự án AI...</div>
 
-  // Chuẩn hóa code AI để dùng Import Map
-  const cleanCode = code
-    .replace(/'lucide-react'/g, '"lucide-react"')
-    .replace(/'react'/g, '"react"')
-    .replace(/'react-dom\/client'/g, '"react-dom/client"')
-    .replace(/export default function/g, 'function')
-
   return (
     <div className="min-h-screen bg-white">
        <iframe 
@@ -49,30 +42,56 @@ export default function Shell() {
                     }
                   }
                 </script>
-                <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+                <script src="https://unpkg.com/sucrase@3.35.0/dist/sucrase.js"></script>
                 <style>body { margin: 0; padding: 0; }</style>
               </head>
               <body>
                 <div id="root"></div>
-                <script type="text/babel" data-type="module" data-presets="react,typescript">
+                <script type="module">
                   import React from 'react';
                   import ReactDOM from 'react-dom/client';
                   
-                  // Code AI (TypeScript + React)
-                  ${cleanCode}
+                  // Code AI gốc
+                  const rawCode = ${JSON.stringify(code)};
 
-                  // Render App
-                  const root = ReactDOM.createRoot(document.getElementById('root'));
-                  root.render(<App />);
+                  try {
+                    // Dùng Sucrase để gọt bỏ TypeScript và JSX
+                    const compiled = window.sucrase.transform(rawCode, {
+                      transforms: ['typescript', 'jsx'],
+                      production: true
+                    }).code;
+
+                    // Thay đổi export để có thể chạy
+                    const executableCode = compiled
+                      .replace(/import.*from.*"react"/g, '')
+                      .replace(/import.*from.*"lucide-react"/g, 'import { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles } from "lucide-react";')
+                      .replace(/export default function/g, 'function');
+
+                    // Tạo Blob để chạy module động
+                    const scriptText = \`
+                      import React from 'react';
+                      import ReactDOM from 'react-dom/client';
+                      \${executableCode}
+                      const root = ReactDOM.createRoot(document.getElementById('root'));
+                      root.render(<App />);
+                    \`;
+                    
+                    const blob = new Blob([scriptText], { type: 'text/javascript' });
+                    const url = URL.createObjectURL(blob);
+                    const script = document.createElement('script');
+                    script.type = 'module';
+                    script.src = url;
+                    document.body.appendChild(script);
+
+                  } catch (e) {
+                    document.getElementById('root').innerHTML = '<div style="padding:40px;color:red;font-family:sans-serif;"><b>Lỗi hiển thị:</b><br/>' + e.message + '</div>';
+                  }
                 </script>
               </body>
             </html>
           `}
           className="w-full h-screen border-none"
        />
-       <div className="fixed bottom-4 right-4 bg-black/80 text-white px-4 py-2 rounded-full text-[10px] z-50 font-mono opacity-50">
-          ID: ${projectId}
-       </div>
     </div>
   )
 }
