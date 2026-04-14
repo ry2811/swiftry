@@ -22,7 +22,7 @@ export default function Shell() {
     }
   }
 
-  if (!projectId) return <div className="p-20 text-center font-sans">Vui lòng nhập ID dự án trên URL</div>
+  if (!projectId) return <div className="p-20 text-center font-sans tracking-tight">Vui lòng nhập ID dự án trên URL</div>
   if (!code) return <div className="p-20 text-center font-sans animate-pulse text-gray-400">Đang nạp dự án AI...</div>
 
   // Chuẩn hóa code AI để dùng Import Map
@@ -54,11 +54,14 @@ export default function Shell() {
               </head>
               <body>
                 <div id="root"></div>
-                <script type="text/babel" data-type="module">
-                  // Nạp code AI qua importmap
+                <script type="text/babel" data-type="module" data-presets="react,typescript">
+                  import React from 'react';
+                  import ReactDOM from 'react-dom/client';
+                  
+                  // Code AI (TypeScript + React)
                   ${cleanCode}
 
-                  import ReactDOM from 'react-dom/client';
+                  // Render App
                   const root = ReactDOM.createRoot(document.getElementById('root'));
                   root.render(<App />);
                 </script>
