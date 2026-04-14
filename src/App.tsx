@@ -39,81 +39,97 @@ export default function Shell() {
         );
       };
       iframeRef.current.addEventListener("load", handleLoad);
-      return () =>
-        iframeRef.current?.removeEventListener("load", handleLoad);
+      return () => iframeRef.current?.removeEventListener("load", handleLoad);
     }
   }, [code]);
 
   if (!projectId)
-    return (
-      <div className="p-20 text-center font-sans text-xl">
-        Vui lòng nhập ID dự án trên URL
-      </div>
-    );
+    return <div className="p-20 text-center text-xl">Vui lòng nhập ID dự án trên URL</div>;
   if (!code)
-    return (
-      <div className="p-20 text-center font-sans animate-pulse text-gray-400 text-xl">
-        Đang nạp dự án AI...
-      </div>
-    );
+    return <div className="p-20 text-center animate-pulse text-gray-400 text-xl">Đang nạp dự án AI...</div>;
 
+  // ============================================================
+  // CHIẾN LƯỢC MỚI: UMD GLOBALS + BABEL (không dùng import map)
+  // - React/ReactDOM/Lucide nạp qua CDN dưới dạng biến global
+  // - Babel chỉ lo transform JSX/TypeScript
+  // - Xóa TOÀN BỘ import/export trước khi chạy
+  // - Dùng Proxy để bắt icon lạ, không bao giờ bị ReferenceError
+  // ============================================================
   const iframeDoc = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8" />
   <script src="https://cdn.tailwindcss.com"><\/script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"><\/script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"><\/script>
+  <script src="https://unpkg.com/lucide-react@0.446.0/dist/umd/lucide-react.min.js"><\/script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
-  <script type="importmap">
-  {
-    "imports": {
-      "react": "https://esm.sh/react@18.3.1",
-      "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
-      "react-dom": "https://esm.sh/react-dom@18.3.1",
-      "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
-      "lucide-react": "https://esm.sh/lucide-react@0.446.0?deps=react@18.3.1"
-    }
-  }
-  <\/script>
-  <style>body { margin: 0; padding: 0; }<\/style>
+  <style>body { margin:0; padding:0; font-family:sans-serif; }<\/style>
 </head>
 <body>
   <div id="root"></div>
-  <script type="text/babel" data-presets="react,typescript" data-type="module">
-    import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-    import ReactDOM from "react-dom/client";
-    import * as LucideAll from "lucide-react";
-
-    // Proxy: bất kỳ icon nào không tồn tại -> trả về Star
-    const LucideProxy = new Proxy(LucideAll, {
-      get: (t, p) => (typeof p === "string" && !t[p] ? t.Star : t[p])
-    });
-
-    // Override lucide-react globally
-    window.__lucide = LucideProxy;
-
-    window.addEventListener("message", (e) => {
+  <script>
+    window.addEventListener("message", function(e) {
       if (e.data.type !== "RENDER_CODE") return;
-      const raw = e.data.code;
 
-      // Thay thế import lucide-react -> destructure từ Proxy
-      const patched = raw
-        .replace(/import\\s+\\*\\s+as\\s+\\w+\\s+from\\s+['"]lucide-react['"]/g, "")
-        .replace(
-          /import\\s+{([\\s\\S]*?)}\\s+from\\s+['"]lucide-react['"]/g,
-          (_, icons) => \`const { \${icons.trim()} } = window.__lucide;\`
-        )
-        .replace(/from\\s+['"]react['"]/g, 'from "react"')
-        .replace(/export\\s+default\\s+function/g, "function");
+      try {
+        var aiCode = e.data.code;
 
-      const script = document.createElement("script");
-      script.type = "text/babel";
-      script.setAttribute("data-presets", "react,typescript");
-      script.textContent = patched + \`
-        const root = ReactDOM.createRoot(document.getElementById("root"));
-        root.render(React.createElement(App));
-      \`;
-      document.body.appendChild(script);
-      Babel.transformScriptTags();
+        // 1. XÓA TOÀN BỘ IMPORT/EXPORT (không cần vì mọi thứ đã là global)
+        var clean = aiCode
+          .replace(/import\\s+[\\s\\S]*?from\\s+['"][^'"]+['"]\\s*;?/g, "")
+          .replace(/export\\s+default\\s+function/g, "function")
+          .replace(/export\\s+default\\s+/g, "")
+          .replace(/export\\s+/g, "");
+
+        // 2. BIÊN DỊCH JSX + TYPESCRIPT QUA BABEL
+        var compiled = Babel.transform(clean, {
+          presets: [
+            ["react", { pragma: "React.createElement", pragmaFrag: "React.Fragment" }],
+            ["typescript", { allExtensions: true, isTSX: true }]
+          ]
+        }).code;
+
+        // 3. CÀI ĐẶT GLOBALS AN TOÀN CHO CODE AI
+        var setupGlobals = function() {
+          // React hooks
+          var useState = React.useState;
+          var useEffect = React.useEffect;
+          var useRef = React.useRef;
+          var useMemo = React.useMemo;
+          var useCallback = React.useCallback;
+          var useContext = React.useContext;
+          var useReducer = React.useReducer;
+
+          // Lucide Proxy - bắt MỌI icon kể cả icon lạ
+          var LucideProxy = new Proxy(LucideReact, {
+            get: function(target, prop) {
+              return target[prop] || target["Star"];
+            }
+          });
+
+          // Phá vỡ destructure để AI dùng trực tiếp
+          var allIcons = Object.keys(LucideReact);
+          allIcons.forEach(function(name) {
+            if (typeof name === "string" && /^[A-Z]/.test(name)) {
+              window[name] = LucideProxy[name];
+            }
+          });
+
+          // Eval code đã biên dịch
+          eval(compiled);
+
+          // 4. RENDER
+          var root = ReactDOM.createRoot(document.getElementById("root"));
+          root.render(React.createElement(App));
+        };
+
+        setupGlobals();
+
+      } catch(err) {
+        document.getElementById("root").innerHTML =
+          '<div style="padding:40px;color:red;font-family:monospace"><b>Lỗi:</b><br>' + err.message + '<\/div>';
+      }
     });
   <\/script>
 </body>
@@ -125,7 +141,7 @@ export default function Shell() {
         ref={iframeRef}
         srcDoc={iframeDoc}
         className="w-full h-screen border-none"
-        sandbox="allow-scripts allow-same-origin"
+        sandbox="allow-scripts"
       />
     </div>
   );
