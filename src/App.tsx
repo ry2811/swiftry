@@ -38,36 +38,33 @@ export default function Shell() {
                       "react": "https://esm.sh/react@18.3.1",
                       "react-dom": "https://esm.sh/react-dom@18.3.1",
                       "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
-                      "lucide-react": "https://esm.sh/lucide-react@0.446.0?deps=react@18.3.1"
+                      "lucide-react": "https://esm.sh/lucide-react@0.446.0?deps=react@18.3.1",
+                      "sucrase": "https://esm.sh/sucrase@3.35.0"
                     }
                   }
                 </script>
-                <script src="https://unpkg.com/sucrase@3.35.0/dist/sucrase.js"></script>
                 <style>body { margin: 0; padding: 0; }</style>
               </head>
               <body>
                 <div id="root"></div>
                 <script type="module">
+                  import { transform } from 'sucrase';
                   import React from 'react';
                   import ReactDOM from 'react-dom/client';
                   
-                  // Code AI gốc
                   const rawCode = ${JSON.stringify(code)};
 
                   try {
-                    // Dùng Sucrase để gọt bỏ TypeScript và JSX
-                    const compiled = window.sucrase.transform(rawCode, {
+                    const compiled = transform(rawCode, {
                       transforms: ['typescript', 'jsx'],
                       production: true
                     }).code;
 
-                    // Thay đổi export để có thể chạy
                     const executableCode = compiled
                       .replace(/import.*from.*"react"/g, '')
                       .replace(/import.*from.*"lucide-react"/g, 'import { Mail, Palette, BookOpen, Music, Star, ChevronLeft, ChevronRight, Instagram, Facebook, Youtube, Heart, Trash, Send, User, Check, Clock, Sparkles } from "lucide-react";')
                       .replace(/export default function/g, 'function');
 
-                    // Tạo Blob để chạy module động
                     const scriptText = \`
                       import React from 'react';
                       import ReactDOM from 'react-dom/client';
