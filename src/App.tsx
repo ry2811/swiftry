@@ -55,7 +55,7 @@ export default function Shell() {
                     }
                   }
                 </script>
-                <style>body { margin: 0; padding: 0; }</style>
+                <style>body { margin: 0; padding: 0; font-family: sans-serif; }</style>
               </head>
               <body>
                 <div id="root"></div>
@@ -67,9 +67,6 @@ export default function Shell() {
                       const aiCode = event.data.code;
                       try {
                         const fullCode = aiCode
-                          .replace(/import {([^}]*)} from 'lucide-react'/g, 'const {$1} = ProxiedIcons;')
-                          .replace(/import.*from.*'react'/g, '')
-                          .replace(/import.*from.*'lucide-react'/g, '')
                           .replace(/export default function/g, 'function')
                           + "\\n" +
                           "import ReactDOM from 'react-dom/client';\\n" +
@@ -81,16 +78,19 @@ export default function Shell() {
                           production: true
                         }).code;
 
+                        // BẪY ICON: Thay thế mọi kiểu import lucide thành dùng ProxiedIcons
                         const finalCode = 
                           "import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';\\n" +
                           "import * as LucideIcons from 'lucide-react';\\n" +
                           "const ProxiedIcons = new Proxy(LucideIcons, {\\n" +
                           "  get: (target, prop) => {\\n" +
-                          "    if (typeof prop === 'string' && !target[prop]) return target.Sparkles || target.Star;\\n" +
+                          "    if (typeof prop === 'string' && !target[prop]) return target.Sparkles || target.Star || target.Activity;\\n" +
                           "    return target[prop];\\n" +
                           "  }\\n" +
                           "});\\n" +
-                          compiled;
+                          compiled.replace(/import\\s+{([^}]*)}\\s+from\\s+['\"]lucide-react['\"]/g, 'const {$1} = ProxiedIcons')
+                                  .replace(/import\\s+React\\s+from\\s+['\"]react['\"]/g, '')
+                                  .replace(/import\\s+React\\s*,\\s*{([^}]*)}\\s+from\\s+['\"]react['\"]/g, 'const {$1} = React');
 
                         const blob = new Blob([finalCode], { type: 'text/javascript' });
                         const url = URL.createObjectURL(blob);
