@@ -2,9 +2,9 @@ import React from 'react';
 import { Mail, BookOpen, Palette, Music, Instagram, Facebook, Twitter, Heart, Star, CheckCircle } from 'lucide-react';
 
 export default function App() {
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
+    const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
     alert(`Cảm ơn bạn đã đăng ký với email: ${email}. Chúng tôi sẽ liên hệ sớm!`);
   };
